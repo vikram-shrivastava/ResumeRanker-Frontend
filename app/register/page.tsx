@@ -1,13 +1,34 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { ReactEventHandler, useState } from "react";
 import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
-
+import { toast } from "sonner";
+import axios from "axios";
+import { useAuth } from "@/context/AuthContext";
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
-
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const {auth} =useAuth();
+  const handleSubmit=async(e:React.FormEvent)=>{
+    try {
+      e.preventDefault()
+      console.log("registering user",username,email,password)
+      const response= await axios.post("http://localhost:8000/api/v1/users/register",{username,email,password},{withCredentials:true});
+      console.log("response",response)
+      console.log("registration response",response.data)
+      console.log("access token",response.data.data.accesstoken)
+      console.log("created user",response.data.data.createdUser)
+      auth(response.data.data.accesstoken,response.data.data.createdUser)
+      toast.success("user registered successfully")
+      window.location.href="/verify"
+    } catch (error: any) {
+      toast.error("Registration failed. Please try again.");
+    }
+  }
   return (
     <>
       <Navbar />
@@ -39,7 +60,7 @@ export default function SignupPage() {
           </div>
 
           {/* Form */}
-          <form className="space-y-5">
+          <form className="space-y-5" onSubmit={handleSubmit}>
 
             {/* Username */}
             <div>
@@ -52,6 +73,7 @@ export default function SignupPage() {
                   type="text"
                   placeholder="john_doe"
                   className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2.5 pl-10 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:border-black focus:outline-none focus:ring-1 focus:ring-black transition-all"
+                  onChange={(e)=>setUsername(e.target.value)}
                 />
               </div>
             </div>
@@ -67,6 +89,7 @@ export default function SignupPage() {
                   type="email"
                   placeholder="you@example.com"
                   className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2.5 pl-10 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:border-black focus:outline-none focus:ring-1 focus:ring-black transition-all"
+                  onChange={(e)=>setEmail(e.target.value)}
                 />
               </div>
             </div>
@@ -82,6 +105,7 @@ export default function SignupPage() {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2.5 pl-10 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:border-black focus:outline-none focus:ring-1 focus:ring-black transition-all"
+                  onChange={(e)=>setPassword(e.target.value)}
                 />
                 <button
                   type="button"

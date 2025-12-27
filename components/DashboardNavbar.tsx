@@ -4,28 +4,39 @@ import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Bell, ChevronRight, Search } from 'lucide-react';
 import Link from 'next/link';
+import axios from 'axios';
 export default function DashboardNavbar() {
   const router = useRouter();
   const pathname = usePathname(); 
 
   // Simulated auth state
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [username, setUsername] = useState<string>('');
+  const [isuser, setIsuser] = useState<boolean>(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token'); 
-    if (token) {
-      setIsLoggedIn(true);
-      setUsername(localStorage.getItem('username') || 'User');
+    const user = localStorage.getItem('user'); 
+    const username=user?JSON.parse(user).username:"";
+    if (user) {
+      setIsuser(true);
+      setUsername(username);
     } else {
-      setIsLoggedIn(false);
+      setIsuser(false);
+      setUsername('User');
     }
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('username');
-    setIsLoggedIn(false);
+    localStorage.removeItem('user');
+    try {
+      const response=await axios.post("http://localhost:8000/api/v1/users/logout",{},{withCredentials:true});
+      if(response.data.success){
+        console.log("logged out successfully")
+      }
+    } catch (error) {
+      console.error("Error during logout:", error);
+    }
+    setIsuser(false);
     router.push('/login');
   };
 
@@ -56,7 +67,7 @@ export default function DashboardNavbar() {
         {/* Vertical Divider */}
         <div className="h-6 w-px bg-gray-200 mx-1"></div>
 
-        {!isLoggedIn ? (
+        {!isuser ? (
           <>
             <button
               onClick={() => router.push('/login')}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Upload, 
   FileText, 
@@ -13,6 +13,9 @@ import {
   XCircle,
   BarChart3
 } from 'lucide-react';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 
 /* --- Types & Mock Data --- */
 type Resume = {
@@ -25,20 +28,30 @@ type Resume = {
   tailored: boolean;
 };
 
-const mockResumes: Resume[] = [
-  { id: 1, name: 'John_Doe_Frontend.pdf', role: 'Frontend Dev', uploadedAt: 'Dec 18, 2025', score: 88, keywordMatch: 80, tailored: true },
-  { id: 2, name: 'John_Doe_PM.docx', role: 'Product Manager', uploadedAt: 'Dec 15, 2025', score: 72, keywordMatch: 65, tailored: false },
-  { id: 3, name: 'John_General_CV.pdf', role: 'Software Engineer', uploadedAt: 'Dec 12, 2025', score: 95, keywordMatch: 90, tailored: true },
-  { id: 4, name: 'John_DataScience.pdf', role: 'Data Scientist', uploadedAt: 'Dec 10, 2025', score: 64, keywordMatch: 50, tailored: false },
-];
-
 export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [resumes, setResumes] = useState<Resume[]>([]);
+  const {user}=useAuth();
   
+  useEffect(()=>{
+    async function fetchData(){
+      try {
+        const response=await axios.get("http://localhost:8000/api/v1/resume/get-all-resume",{withCredentials:true});
+        console.log("resumes data",response.data);
+        setResumes(response.data.data.resumes);
+        toast.success("Resumes fetched successfully");
+      } catch (error: any) {
+        setResumes([]);
+        toast.error("No Resume Found");
+      }
+    }
+    fetchData();
+  }, [])
   // Derived Stats
-  const totalResumes = mockResumes.length;
-  const averageScore = Math.round(mockResumes.reduce((a, b) => a + b.score, 0) / totalResumes);
-  const tailoredCount = mockResumes.filter(r => r.tailored).length;
+  const username=user?user.username:"";
+  const totalResumes =(resumes)? resumes?.length:(0);
+  const averageScore = ((totalResumes>0)?(Math.round(resumes?.reduce((a, b) => a + b.score, 0) / totalResumes)):0);
+  const tailoredCount = (totalResumes>0)?(resumes?.filter(r => r.tailored).length):(0);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans p-6 md:p-10">
@@ -47,7 +60,7 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-black">Dashboard</h1>
-          <p className="text-gray-500 text-sm mt-1">Welcome back, Aditya. Here is your resume performance.</p>
+          <p className="text-gray-500 text-sm mt-1">Welcome back, {username}. Here is your resume performance.</p>
         </div>
         <div className="flex gap-3">
           <button className="flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all shadow-sm">
@@ -121,7 +134,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {mockResumes.filter(r => r.name.toLowerCase().includes(searchTerm.toLowerCase())).map((resume) => (
+                  {(totalResumes>0)?(resumes.filter(r => r.name.toLowerCase().includes(searchTerm.toLowerCase())).map((resume) => (
                     <tr key={resume.id} className="hover:bg-gray-50 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -158,14 +171,22 @@ export default function DashboardPage() {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                  ))):(
+                    <tr>
+                      <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                        No resumes found.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
             {/* Table Footer */}
+            {(totalResumes>0) &&
             <div className="p-4 border-t border-gray-100 bg-gray-50 text-xs text-gray-500 text-center cursor-pointer hover:bg-gray-100 transition-colors">
               View all documents
             </div>
+            }
           </div>
 
           {/* --- Insights Chart Section (Span 1 col) --- */}
@@ -185,7 +206,7 @@ export default function DashboardPage() {
                 <div className="border-b border-gray-100 w-full h-0"></div>
               </div>
 
-              {mockResumes.map((resume, index) => (
+              {totalResumes>0 && resumes.map((resume, index) => (
                 <div key={resume.id} className="relative group flex flex-col items-center flex-1 h-full justify-end z-10">
                    {/* Tooltip */}
                    <div className="absolute -top-8 bg-black text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
@@ -197,10 +218,11 @@ export default function DashboardPage() {
                     style={{ height: `${resume.score}%` }} 
                   />
                   {/* Label */}
-                  <span className="text-[10px] text-gray-400 mt-2">V{mockResumes.length - index}</span>
+                  <span className="text-[10px] text-gray-400 mt-2">V{resumes.length - index}</span>
                 </div>
-              ))}
+            ))}
             </div>
+            {totalResumes>0 &&
             <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-2 mb-1">
                     <TrendingUp size={14} className="text-emerald-600" />
@@ -208,6 +230,7 @@ export default function DashboardPage() {
                 </div>
                 <p className="text-xs text-gray-500">Your latest resume scored 95%, which is in the top 10% of users.</p>
             </div>
+            }
           </div>
         </div>
       </div>

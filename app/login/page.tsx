@@ -4,9 +4,26 @@ import React, { useState } from "react";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
-
+import axios from "axios";
+import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const {auth} =useAuth();
+  const handleSubmit = async(e: React.FormEvent) => {
+   try {
+     e.preventDefault();
+     const response=await axios.post('http://localhost:8000/api/v1/users/login',{email,password},{withCredentials:true});
+       auth(response.data.data.accesstoken,response.data.data.createdUser);
+       toast.success("Login successful");
+       window.location.href='/';
+   } catch (error: any) {
+    toast.error("Login failed. Please try again.");
+   }
+    
+  }
 
   return (
     <>
@@ -39,7 +56,7 @@ export default function LoginPage() {
           </div>
 
           {/* Form */}
-          <form className="space-y-5">
+          <form className="space-y-5" onSubmit={handleSubmit}>
 
             {/* Email */}
             <div>
@@ -52,6 +69,7 @@ export default function LoginPage() {
                   type="email"
                   placeholder="you@example.com"
                   className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2.5 pl-10 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:border-black focus:outline-none focus:ring-1 focus:ring-black transition-all"
+                  onChange={(e)=>setEmail(e.target.value)}
                 />
               </div>
             </div>
@@ -70,6 +88,7 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2.5 pl-10 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:border-black focus:outline-none focus:ring-1 focus:ring-black transition-all"
+                  onChange={(e)=>setPassword(e.target.value)}
                 />
                 <button
                   type="button"
@@ -97,7 +116,7 @@ export default function LoginPage() {
           {/* Footer */}
           <div className="mt-6 text-center text-sm text-gray-500">
             Don't have an account?{" "}
-            <Link href="/signup" className="font-semibold text-black hover:underline transition-all">
+            <Link href="/register" className="font-semibold text-black hover:underline transition-all">
               Sign up
             </Link>
           </div>

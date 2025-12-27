@@ -34,7 +34,9 @@ export default function RootLayout({
   // Hooks for routing logic
   const pathname = usePathname();
   const router = useRouter();
-
+  const user=localStorage.getItem("user");
+  const username=user?JSON.parse(user).username:"";
+  const email=user?JSON.parse(user).email:"";
   // Navigation Data
   const mainNavItems = [
     { name: "Dashboard Home", path: "/dashboard", icon: <Home size={20} /> },
@@ -111,8 +113,8 @@ export default function RootLayout({
            {showUserDetails && (
             <div className="absolute bottom-full left-4 right-4 mb-2 rounded-xl bg-white shadow-xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
               <div className="p-4 border-b border-gray-100">
-                 <p className="text-sm font-semibold text-gray-900">John Doe</p>
-                 <p className="text-xs text-gray-500 truncate">johndoe@example.com</p>
+                 <p className="text-sm font-semibold text-gray-900">{username}</p>
+                 <p className="text-xs text-gray-500 truncate">{email}</p>
               </div>
               <button className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors">
                 <LogOut size={16} /> Sign out
@@ -131,7 +133,7 @@ export default function RootLayout({
                <User size={18} />
             </div>
             <div className="flex-1 text-left">
-              <p className="text-sm font-medium text-gray-900 leading-none">John Doe</p>
+              <p className="text-sm font-medium text-gray-900 leading-none">{username}</p>
               <p className="text-xs text-gray-500 mt-1">Free Plan</p>
             </div>
             {showUserDetails ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronUp size={16} className="text-gray-400" />}
