@@ -1,19 +1,22 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { 
-  UploadCloud, 
-  FileText, 
-  Loader2, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  UploadCloud,
+  FileText,
+  Loader2,
+  CheckCircle2,
+  XCircle,
   AlertTriangle,
   RefreshCcw,
   ChevronRight,
   Target
 } from 'lucide-react';
+import axios from 'axios';
+import { CldUploadWidget } from 'next-cloudinary';
+import { toast } from 'sonner';
 
-/* --- Mock Data Interfaces --- */
+/* --- Interfaces --- */
 interface AnalysisResult {
   score: number;
   fileName: string;
@@ -24,239 +27,283 @@ interface AnalysisResult {
   improvements: string[];
 }
 
-/* --- Main Page Component --- */
+/* --- Main Page --- */
 export default function GetATSPage() {
-  const [file, setFile] = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [atsMode, setAtsMode] = useState<'jd' | 'role'>('jd');
+  const [jobDescription, setJobDescription] = useState('');
+  const [jobRole, setJobRole] = useState('');
+
+  const [cloudinaryUrl, setCloudinaryUrl] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
 
-  // --- Event Handlers ---
+  /* ---------------- Upload Success ---------------- */
+  const handleUploadSuccess = useCallback((result: any) => {
+    if (result?.event !== 'success') return;
+    console.log('Upload Success:', result);
+    const url = result.info.secure_url;
+    const fileName = `${result.info.original_filename}.${result.info.format}`;
 
-  const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
+    setCloudinaryUrl(url);
+    setUploadedFileName(fileName);
+
+    toast.success('Resume uploaded successfully');
   }, []);
 
-  const onDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
-
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && droppedFile.type === 'application/pdf') {
-      handleFileUpload(droppedFile);
-    } else {
-      alert('Please upload a PDF file.');
+  /* ---------------- Generate ATS ---------------- */
+  const handleGenerateATS = async () => {
+    if (!cloudinaryUrl || !uploadedFileName) {
+      toast.error('Please upload a resume first');
+      return;
     }
-  }, []);
 
-  const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-       handleFileUpload(selectedFile);
+    const response = await axios.post('http://localhost:8000/api/v1/resume/save-resume', { resumelink: cloudinaryUrl, originalFilename: uploadedFileName }, { withCredentials: true });
+    console.log('Resume Save Response:', response);
+    const resumeId = response.data.data._id;
+    if (atsMode === 'jd' && !jobDescription.trim()) {
+      toast.error('Please provide job description');
+      return;
     }
-  };
 
-  const handleFileUpload = (uploadedFile: File) => {
-    setFile(uploadedFile);
+    if (atsMode === 'role' && !jobRole.trim()) {
+      toast.error('Please provide target job role');
+      return;
+    }
+
     setIsAnalyzing(true);
 
-    // Simulate backend analysis delay (3 seconds)
-    setTimeout(() => {
+    try {
+      const response = await axios.post('http://localhost:8000/api/v1/ats/create-ats-score', {
+        resumeId: resumeId,
+        atsMode,
+        jobDescription,
+        jobRole
+      }, { withCredentials: true });
+
       setAnalysis({
-        score: 82,
-        fileName: uploadedFile.name,
-        roleDetected: "Senior Frontend Engineer",
-        summary: "Strong resume with good experience formatting. The structure is ATS-friendly.",
-        keywordsFound: ["React", "TypeScript", "Next.js", "Tailwind CSS", "System Design"],
-        keywordsMissing: ["GraphQL", "AWS", "CI/CD Pipelines", "Unit Testing (Jest)"],
-        improvements: [
-          "Add a 'Skills' section summary at the top for better parsing.",
-          "Quantify your achievements in the 'Experience' section (e.g., 'improved performance by 20%').",
-          "Ensure dates are formatted consistently (MM/YYYY)."
-        ]
+        score: response.data.data.totalATSScore,
+        fileName: uploadedFileName,
+        roleDetected: response.data.data.roleDetected,
+        summary: response.data.data.summary,
+        keywordsFound: response.data.data.keywordsFound,
+        keywordsMissing: response.data.data.keywordsMissing,
+        improvements: response.data.data.improvements
       });
+
+      toast.success('ATS Analysis Complete');
+    } catch (error) {
+      toast.error('Failed to analyze resume');
+    } finally {
       setIsAnalyzing(false);
-    }, 3000);
+    }
   };
 
+  /* ---------------- Reset ---------------- */
   const resetUpload = () => {
-    setFile(null);
     setAnalysis(null);
+    setCloudinaryUrl(null);
+    setUploadedFileName(null);
+    setJobDescription('');
+    setJobRole('');
   };
 
-  // --- Color Helpers based on score ---
+  /* ---------------- Score Color ---------------- */
   const getScoreColor = (score: number) => {
-    if (score >= 80) return { text: 'text-emerald-600', bg: 'bg-emerald-500', border: 'border-emerald-500', lightBg: 'bg-emerald-50' };
-    if (score >= 60) return { text: 'text-amber-600', bg: 'bg-amber-500', border: 'border-amber-500', lightBg: 'bg-amber-50' };
-    return { text: 'text-red-600', bg: 'bg-red-500', border: 'border-red-500', lightBg: 'bg-red-50' };
+    if (score >= 80)
+      return { text: 'text-emerald-600', border: 'border-emerald-600', lightBg: 'bg-emerald-50' };
+    if (score >= 50)
+      return { text: 'text-amber-600', border: 'border-amber-600', lightBg: 'bg-amber-50' };
+    return { text: 'text-red-600', border: 'border-red-600', lightBg: 'bg-red-50' };
   };
 
   return (
-    <div className="min-h-full p-6 md:p-10">
-      
+    <div className="min-h-full p-6 md:p-10 bg-gray-50">
       {/* Header */}
-      <div className="max-w-4xl mx-auto mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-black">ATS Resume Checker</h1>
-        <p className="text-gray-500 text-sm mt-1">Upload your resume to see how well it parses against standard Applicant Tracking Systems.</p>
+      <div className="max-w-5xl mx-auto mb-8">
+        <h1 className="text-2xl font-bold text-black">ATS Resume Checker</h1>
+        <p className="text-gray-500 text-sm mt-1">
+          Analyze your resume using ATS logic with JD or role targeting
+        </p>
       </div>
 
-      <div className="max-w-4xl mx-auto">
-        
-        {/* State 1 & 2: Upload Area OR Loading State */}
+      <div className="max-w-5xl mx-auto">
         {!analysis && (
-          <div 
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-            className={`relative flex flex-col items-center justify-center p-12 h-96 border-2 border-dashed rounded-xl transition-all bg-white
-              ${isDragging ? 'border-black bg-gray-50' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50/50'}
-              ${isAnalyzing ? 'pointer-events-none opacity-90' : ''}
-            `}
-          >
-            {isAnalyzing ? (
-              /* Loading State */
-              <div className="flex flex-col items-center animate-in fade-in duration-500">
-                <Loader2 size={48} className="text-black animate-spin mb-4" />
-                <p className="text-lg font-semibold text-gray-900">Analyzing your Resume...</p>
-                <p className="text-sm text-gray-500 mt-2">Extracting keywords, formatting, and experience data.</p>
-                <div className="mt-6 flex items-center gap-2 p-2 bg-gray-100 rounded-lg">
-                    <FileText size={16} className="text-gray-500"/>
-                    <span className="text-sm font-medium">{file?.name}</span>
-                </div>
-              </div>
-            ) : (
-              /* Upload State */
-              <>
-                <input 
-                  type="file" 
-                  id="file-upload" 
-                  className="hidden" 
-                  accept=".pdf"
-                  onChange={onFileSelect}
-                />
-                
-                <div className="p-4 rounded-full bg-gray-100 mb-4">
-                  <UploadCloud size={40} className="text-gray-600" />
-                </div>
-                <label htmlFor="file-upload" className="text-xl font-bold text-gray-900 cursor-pointer hover:underline">
-                    Click to upload
-                </label>
-                <p className="text-gray-500 text-base mt-2">or drag and drop your PDF file here.</p>
-                <p className="text-xs text-gray-400 mt-6">PDF only. Max file size 10MB.</p>
-              </>
-            )}
-          </div>
-        )}
+          <div className="space-y-6">
 
-        {/* State 3: Analysis Results Dashboard */}
-        {analysis && (
-          <div className="animate-in slide-in-from-bottom-4 duration-500">
-            
-            {/* Top Summary Card */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 md:p-8 mb-6">
-              <div className="flex flex-col md:flex-row gap-8 items-center justify-between">
-                
-                {/* Left: Score & File Info */}
-                <div className="flex items-center gap-6 flex-1">
-                   {/* Score Circle (CSS based) */}
-                  <div className={`relative w-28 h-28 flex items-center justify-center rounded-full border-8 ${getScoreColor(analysis.score).lightBg} ${getScoreColor(analysis.score).border}`}>
-                    <div className="text-center">
-                      <span className={`text-3xl font-extrabold ${getScoreColor(analysis.score).text}`}>{analysis.score}</span>
-                      <span className="block text-xs text-gray-500 font-medium uppercase">ATS Score</span>
-                    </div>
-                  </div>
+            {/* ATS Mode */}
+            <div className="bg-white border rounded-xl p-4">
+              <p className="text-sm font-semibold mb-3">Choose ATS Analysis Type</p>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setAtsMode('jd')}
+                  className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium ${atsMode === 'jd'
+                      ? 'bg-black text-white border-black'
+                      : 'bg-white text-black border-gray-200'
+                    }`}
+                >
+                  Resume + Job Description
+                </button>
 
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-1">Analysis Complete</h2>
-                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
-                        <FileText size={14} />
-                        <span>{analysis.fileName}</span>
-                        <ChevronRight size={14} className="text-gray-300"/>
-                        <Target size={14} />
-                        <span>Detected Role: {analysis.roleDetected}</span>
-                    </div>
-                    <p className="text-gray-700 text-sm leading-relaxed max-w-lg">
-                        <span className="font-semibold">Summary: </span>{analysis.summary}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Right: Action Button */}
-                <div>
-                    <button 
-                        onClick={resetUpload}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-black transition-colors shadow-sm"
-                    >
-                        <RefreshCcw size={16} /> Upload Another
-                    </button>
-                </div>
+                <button
+                  onClick={() => setAtsMode('role')}
+                  className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium ${atsMode === 'role'
+                      ? 'bg-black text-white border-black'
+                      : 'bg-white text-black border-gray-200'
+                    }`}
+                >
+                  Resume + Target Job Role
+                </button>
               </div>
             </div>
 
-            {/* Detailed Grid */}
+            {/* Main Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Keywords Card */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col h-full">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Target size={20} className="text-gray-500" /> Keyword Analysis
-                </h3>
-                
-                <div className="space-y-6 flex-1">
-                    <div>
-                        <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
-                            <CheckCircle2 size={16} className="text-emerald-500"/> Found Keywords
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                            {analysis.keywordsFound.map(kw => (
-                                <span key={kw} className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-md border border-emerald-100">
-                                    {kw}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
 
-                    <div>
-                        <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
-                            <XCircle size={16} className="text-red-500"/> Missing Important Keywords
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                            {analysis.keywordsMissing.map(kw => (
-                                <span key={kw} className="px-2.5 py-1 bg-red-50 text-red-700 text-xs font-medium rounded-md border border-red-100">
-                                    {kw}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
+              {/* Upload Box */}
+              <div className="flex items-center justify-center h-80 border-2 border-dashed rounded-xl bg-white text-black">
+                {isAnalyzing ? (
+                  <div className="text-center text-black">
+                    <Loader2 size={40} className="animate-spin mx-auto mb-3" />
+                    <p className="font-semibold">Analyzing resume…</p>
+                  </div>
+                ) : uploadedFileName ? (
+                  <div className="flex items-center gap-3 bg-gray-100 px-5 py-3 rounded-lg text-black">
+                    <FileText size={22} />
+                    <span className="text-sm font-medium">{uploadedFileName}</span>
+                  </div>
+                ) : (
+                  <CldUploadWidget uploadPreset="Projects" onSuccess={handleUploadSuccess}>
+                    {({ open }) => (
+                      <div onClick={() => open()} className="text-center cursor-pointer">
+                        <UploadCloud size={36} className="mx-auto mb-3" />
+                        <p className="font-semibold">Upload Resume</p>
+                        <p className="text-xs text-gray-500">PDF only · Max 10MB</p>
+                      </div>
+                    )}
+                  </CldUploadWidget>
+                )}
+              </div>
+
+              {/* Context Input */}
+              {atsMode === 'jd' ? (
+                <div className='flex flex-col h-full mt-1'>
+                  <div className='text-xl font-bold text-black'>Job Description:</div>
+                  <textarea
+                    className="w-full h-40 p-3 rounded-lg border text-black"
+                    placeholder="Paste job description here..."
+                    value={jobDescription}
+                    onChange={(e) => setJobDescription(e.target.value)}
+                  />
                 </div>
-                 <div className="mt-6 pt-4 border-t border-gray-100">
-                     <p className="text-xs text-gray-500">Tip: Add missing keywords naturally into your work experience.</p>
-                 </div>
-              </div>
+              ) : (
+                <div className='flex flex-col h-full mt-1'>
+                  <div className='text-xl font-bold text-black'>Job Role:</div>
+                  <input
+                    className="w-full p-3 rounded-lg border text-black"
+                    placeholder="Target job role"
+                    value={jobRole}
+                    onChange={(e) => setJobRole(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
 
-              {/* Improvements Card */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 h-full">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <AlertTriangle size={20} className="text-amber-500" /> Actionable Improvements
-                </h3>
-                 <ul className="space-y-3">
-                    {analysis.improvements.map((item, index) => (
-                        <li key={index} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 border border-gray-100">
-                            <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm text-gray-700 leading-relaxed">{item}</span>
-                        </li>
-                    ))}
-                </ul>
-              </div>
-
+            {/* CTA */}
+            <div className="flex justify-end">
+              <button
+                onClick={handleGenerateATS}
+                disabled={isAnalyzing}
+                className="px-6 py-2 bg-black text-white rounded-lg"
+              >
+                Generate ATS Score
+              </button>
             </div>
           </div>
         )}
+
+        {/* ================= RESULT ================= */}
+        {/* ================= RESULT ================= */}
+        {analysis && (
+          <div className="space-y-6 text-black max-w-5xl mx-auto">
+
+            {/* Score & Role */}
+            <div className="bg-white p-6 rounded-xl border flex justify-between items-center">
+              <div className="flex items-center gap-6">
+                <div className={`w-24 h-24 flex items-center justify-center rounded-full border-8 ${getScoreColor(analysis.score).border} ${getScoreColor(analysis.score).lightBg}`}>
+                  <span className={`text-3xl font-bold ${getScoreColor(analysis.score).text}`}>
+                    {analysis.score}
+                  </span>
+                </div>
+
+                <div className='text-black'>
+                  <p className="font-bold text-lg">{analysis.fileName}</p>
+                  <p className="text-sm text-gray-500">Detected Role: {analysis.roleDetected}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={resetUpload}
+                className="flex items-center gap-2 px-4 py-2 border rounded-lg"
+              >
+                <RefreshCcw size={16} /> Upload Another
+              </button>
+            </div>
+
+            {/* Summary */}
+            <div className="bg-white p-6 rounded-xl border">
+              <h2 className="font-semibold text-lg mb-2">Summary</h2>
+              <p className="text-gray-700">{analysis.summary || 'No summary available.'}</p>
+            </div>
+
+            {/* Keywords */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              <div className="bg-white p-6 rounded-xl border">
+                <h2 className="font-semibold text-lg mb-2">Keywords Found</h2>
+                {analysis.keywordsFound.length > 0 ? (
+                  <ul className="list-disc list-inside text-gray-700">
+                    {analysis.keywordsFound.map((kw, idx) => (
+                      <li key={idx}>{kw}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500">No keywords found.</p>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-xl border">
+                <h2 className="font-semibold text-lg mb-2">Keywords Missing</h2>
+                {analysis.keywordsMissing.length > 0 ? (
+                  <ul className="list-disc list-inside text-gray-700">
+                    {analysis.keywordsMissing.map((kw, idx) => (
+                      <li key={idx}>{kw}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500">No keywords missing.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Improvements */}
+            <div className="bg-white p-6 rounded-xl border">
+              <h2 className="font-semibold text-lg mb-2">Suggested Improvements</h2>
+              {analysis.improvements.length > 0 ? (
+                <ul className="list-decimal list-inside text-gray-700">
+                  {analysis.improvements.map((item, idx) => (
+                    <li key={idx}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500">No improvements suggested.</p>
+              )}
+            </div>
+
+          </div>
+        )}
+
       </div>
     </div>
   );

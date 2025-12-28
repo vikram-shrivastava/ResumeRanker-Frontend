@@ -15,6 +15,7 @@ import {
   MessageSquare
 } from "lucide-react";
 import DashboardNavbar from "@/components/DashboardNavbar"; 
+import { useAuth } from "@/context/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,9 +35,9 @@ export default function RootLayout({
   // Hooks for routing logic
   const pathname = usePathname();
   const router = useRouter();
-  const user=localStorage.getItem("user");
-  const username=user?JSON.parse(user).username:"";
-  const email=user?JSON.parse(user).email:"";
+  const {user}=useAuth()
+  const username=user?user.username:"";
+  const email=user?user.email:"";
   // Navigation Data
   const mainNavItems = [
     { name: "Dashboard Home", path: "/dashboard", icon: <Home size={20} /> },
@@ -61,7 +62,7 @@ export default function RootLayout({
           {/* Logo */}
           <div 
             className="flex items-center gap-2 mb-8 cursor-pointer" 
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push('/')}
           >
             <svg 
               className="w-7 h-7 text-black" 

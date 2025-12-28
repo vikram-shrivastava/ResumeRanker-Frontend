@@ -26,8 +26,6 @@ export default function DashboardNavbar() {
   }, []);
 
   const handleLogout = async () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
     try {
       const response=await axios.post("http://localhost:8000/api/v1/users/logout",{},{withCredentials:true});
       if(response.data.success){
@@ -36,6 +34,8 @@ export default function DashboardNavbar() {
     } catch (error) {
       console.error("Error during logout:", error);
     }
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setIsuser(false);
     router.push('/login');
   };

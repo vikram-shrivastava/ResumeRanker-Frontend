@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Upload, 
   FileText, 
@@ -12,50 +12,84 @@ import {
   ChevronRight,
   Plus
 } from 'lucide-react';
+import { CldUploadWidget } from 'next-cloudinary';
+import { toast } from 'sonner';
+import axios from 'axios';
 
-/* --- Mock Data for Modal --- */
-const recentResumes = [
-  { id: 1, name: 'John_Doe_Frontend.pdf', date: 'Dec 18, 2025' },
-  { id: 2, name: 'John_Doe_PM.docx', date: 'Dec 15, 2025' },
-  { id: 3, name: 'John_General_CV.pdf', date: 'Dec 12, 2025' },
-];
+interface Resume {
+  _id: string;
+  originalFilename: string;
+  updatedAt: string;
+}
 
 export default function TailorResumePage() {
   // State Management
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedResume, setSelectedResume] = useState<typeof recentResumes[0] | null>(null);
+  const [selectedResume, setSelectedResume] = useState<Resume>({ _id: '', originalFilename: '', updatedAt: '' });
   const [jobDescription, setJobDescription] = useState('');
   const [additionalSkills, setAdditionalSkills] = useState('');
-  
+  const [cloudinaryUrl, setCloudinaryUrl] = useState<string | null>(null);
+  const [recentResumes,setRecentResumes]=useState<Resume[]>([]);
   // Generation States
   const [isGenerating, setIsGenerating] = useState(false);
   const [showResult, setShowResult] = useState(false);
 
   // --- Handlers ---
 
+  useEffect(()=>{
+    async function fetchRecentResumes (){
+      try {
+        const response = await axios.get('http://localhost:8000/api/v1/resume/get-all-resume',{withCredentials:true});
+        console.log("Recent Resumes Response:",response);
+        const resume = response.data.data;
+        setRecentResumes(resume);
+        console.log("Recent Resumes Fetched:",resume);
+        toast.success("Recent resumes fetched successfully.");
+      } catch (error) {
+        toast.error("Failed to fetch recent resumes.");
+      }
+    }
+    fetchRecentResumes();
+  },[])
   const handleSelectResume = (resume: typeof recentResumes[0]) => {
     setSelectedResume(resume);
     setIsModalOpen(false);
   };
-
-  const handleUploadNew = () => {
-    // Simulate upload flow
-    const newFile = { id: 99, name: 'New_Uploaded_Resume.pdf', date: 'Just now' };
-    setSelectedResume(newFile);
-    setIsModalOpen(false);
-  };
-
-  const handleGenerate = () => {
+  const totalResumes=recentResumes.length;
+  const handleGenerate = async() => {
     if (!selectedResume || !jobDescription) return;
     
     setIsGenerating(true);
     setShowResult(false);
 
-    // Simulate AI Processing time
-    setTimeout(() => {
+    try {
+      const response=await axios.post("http://localhost:8000/api/v1/ats/tailor-resume-for-job",{resumeId:selectedResume._id,jobDescription:jobDescription,dataforresume:additionalSkills},{responseType: "blob",withCredentials:true});
+      console.log("Tailor Resume Response:",response);
+      const pdfBlob = new Blob([response.data], { type: "application/pdf" });
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl); // opens PDF in new tab
+    } catch (error) {
+      console.error("Error tailoring resume:",error);
+      toast.error("Failed to tailor resume. Please try again.");
+    } finally {
       setIsGenerating(false);
       setShowResult(true);
-    }, 3000);
+    }
+
+  };
+
+    const handleUploadSuccess = (result:any) => {
+    if (result.event === "success") {
+      const info = result.info;
+
+      setCloudinaryUrl(info.secure_url);
+      setSelectedResume({ _id: info.asset_id, originalFilename: info.original_filename + '.' + info.format, updatedAt: 'Just now' });
+      
+      setRecentResumes(prev => [{ _id: info.asset_id, originalFilename: info.original_filename + '.' + info.format, updatedAt: 'Just now' }, ...prev]);
+      setIsModalOpen(false);
+
+      toast.success("Resume uploaded successfully!");
+    }
   };
 
   return (
@@ -87,8 +121,8 @@ export default function TailorResumePage() {
                     <FileText size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">{selectedResume.name}</p>
-                    <p className="text-xs text-gray-500">Uploaded: {selectedResume.date}</p>
+                    <p className="text-sm font-semibold text-gray-900">{selectedResume.originalFilename}</p>
+                    <p className="text-xs text-gray-500">Uploaded: {selectedResume.updatedAt.split("T")[0]}</p>
                   </div>
                 </div>
                 <button 
@@ -100,15 +134,15 @@ export default function TailorResumePage() {
               </div>
             ) : (
               <button 
-                onClick={() => setIsModalOpen(true)}
-                className="w-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all group"
-              >
+              onClick={() => setIsModalOpen(true)}
+              className="w-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all group"
+              >  
                 <div className="p-3 bg-gray-100 rounded-full mb-3 group-hover:bg-white group-hover:shadow-sm">
                   <Upload size={24} className="text-gray-600" />
                 </div>
                 <p className="text-sm font-medium text-gray-900">Choose or Upload Resume</p>
               </button>
-            )}
+                )}
           </div>
 
           {/* 2. Job Description */}
@@ -249,9 +283,9 @@ export default function TailorResumePage() {
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Recent Uploads</p>
               
               <div className="space-y-2 mb-6">
-                {recentResumes.map((resume) => (
+                {totalResumes>0 && recentResumes.map((resume) => (
                   <button
-                    key={resume.id}
+                    key={resume._id}
                     onClick={() => handleSelectResume(resume)}
                     className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-black hover:bg-gray-50 transition-all group text-left"
                   >
@@ -260,8 +294,8 @@ export default function TailorResumePage() {
                         <FileText size={18} />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">{resume.name}</p>
-                        <p className="text-xs text-gray-500">{resume.date}</p>
+                        <p className="text-sm font-semibold text-gray-900">{resume.originalFilename}</p>
+                        <p className="text-xs text-gray-500">{resume.updatedAt.split("T")[0]}</p>
                       </div>
                     </div>
                     <ChevronRight size={16} className="text-gray-300 group-hover:text-black" />
@@ -277,15 +311,18 @@ export default function TailorResumePage() {
                   <span className="bg-white px-2 text-xs text-gray-400">OR</span>
                 </div>
               </div>
-
-              <div className="mt-6">
+                 <CldUploadWidget uploadPreset="Projects" onSuccess={handleUploadSuccess}>
+                {({ open }) => (
+              <div className="mt-6" onClick={()=>open()}>
                 <button 
-                  onClick={handleUploadNew}
+                  onClick={handleUploadSuccess}
                   className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 font-medium text-sm flex items-center justify-center gap-2 hover:border-black hover:text-black transition-all"
                 >
                   <Plus size={18} /> Upload New Resume
                 </button>
               </div>
+              )}
+              </CldUploadWidget>
             </div>
 
           </div>
