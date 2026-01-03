@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import { toast } from "sonner";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
+import api from "@/utils/axiosInstance";
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
@@ -17,7 +18,7 @@ export default function SignupPage() {
     try {
       e.preventDefault()
       console.log("registering user",username,email,password)
-      const response= await axios.post("http://localhost:8000/api/v1/users/register",{username,email,password},{withCredentials:true});
+      const response= await api.post("/api/v1/users/register",{username,email,password},{withCredentials:true});
       console.log("response",response)
       console.log("registration response",response.data)
       console.log("access token",response.data.data.accesstoken)

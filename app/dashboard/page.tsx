@@ -20,7 +20,8 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
-/* --- Types & Mock Data --- */
+import api from "@/utils/axiosInstance.js"
+
 type Resume = {
   _id: string;
   originalFilename: string;
@@ -40,7 +41,7 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const response = await axios.get("http://localhost:8000/api/v1/resume/get-all-resume", { withCredentials: true });
+        const response = await api.get("/api/v1/resume/get-all-resume", { withCredentials: true });
         console.log("resumes data", response.data);
         setResumes(response.data.data);
         toast.success("Resumes fetched successfully");

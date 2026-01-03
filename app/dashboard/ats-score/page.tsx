@@ -15,7 +15,7 @@ import {
 import axios from 'axios';
 import { CldUploadWidget } from 'next-cloudinary';
 import { toast } from 'sonner';
-
+import api from '@/utils/axiosInstance';
 /* --- Interfaces --- */
 interface AnalysisResult {
   score: number;
@@ -59,7 +59,7 @@ export default function GetATSPage() {
       return;
     }
 
-    const response = await axios.post('http://localhost:8000/api/v1/resume/save-resume', { resumelink: cloudinaryUrl, originalFilename: uploadedFileName }, { withCredentials: true });
+    const response = await api.post('/api/v1/resume/save-resume', { resumelink: cloudinaryUrl, originalFilename: uploadedFileName }, { withCredentials: true });
     console.log('Resume Save Response:', response);
     const resumeId = response.data.data._id;
     if (atsMode === 'jd' && !jobDescription.trim()) {
@@ -75,7 +75,7 @@ export default function GetATSPage() {
     setIsAnalyzing(true);
 
     try {
-      const response = await axios.post('http://localhost:8000/api/v1/ats/create-ats-score', {
+      const response = await api.post('/api/v1/ats/create-ats-score', {
         resumeId: resumeId,
         atsMode,
         jobDescription,
@@ -100,7 +100,6 @@ export default function GetATSPage() {
     }
   };
 
-  /* ---------------- Reset ---------------- */
   const resetUpload = () => {
     setAnalysis(null);
     setCloudinaryUrl(null);
@@ -109,7 +108,6 @@ export default function GetATSPage() {
     setJobRole('');
   };
 
-  /* ---------------- Score Color ---------------- */
   const getScoreColor = (score: number) => {
     if (score >= 80)
       return { text: 'text-emerald-600', border: 'border-emerald-600', lightBg: 'bg-emerald-50' };

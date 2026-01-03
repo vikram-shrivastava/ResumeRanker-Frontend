@@ -213,7 +213,7 @@ export default function Home(): React.ReactElement {
           <div className="flex items-center gap-2">
             {/* Small Logo Icon */}
             <div className="w-6 h-6 bg-black rounded flex items-center justify-center text-white font-bold text-xs">R</div>
-            <p>© 2025 ResumeRanker. All rights reserved.</p>
+            <p>© 2026 ResumeRanker. All rights reserved.</p>
           </div>
 
           <div className="flex gap-8">

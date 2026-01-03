@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import axios from "axios";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import api from "@/utils/axiosInstance";
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -15,7 +16,7 @@ export default function LoginPage() {
   const handleSubmit = async(e: React.FormEvent) => {
    try {
      e.preventDefault();
-     const response=await axios.post('http://localhost:8000/api/v1/users/login',{email,password},{withCredentials:true});
+     const response=await api.post('/api/v1/users/login',{email,password},{withCredentials:true});
        auth(response.data.data.accesstoken,response.data.data.createdUser);
        toast.success("Login successful");
        window.location.href='/';

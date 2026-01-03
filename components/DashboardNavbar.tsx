@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Bell, ChevronRight, Search } from 'lucide-react';
 import Link from 'next/link';
 import axios from 'axios';
+import api from '@/utils/axiosInstance';
 export default function DashboardNavbar() {
   const router = useRouter();
   const pathname = usePathname(); 

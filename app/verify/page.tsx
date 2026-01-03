@@ -3,7 +3,7 @@
 import axios from "axios";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-
+import api from "@/utils/axiosInstance";
 const OTP_LENGTH = 6;
 
 export default function VerifyPage() {
@@ -46,7 +46,7 @@ export default function VerifyPage() {
       const user=localStorage.getItem("user");
       const username=user?JSON.parse(user).username:"";
       console.log("verifying OTP for user:",username)
-      const response=await axios.post("http://localhost:8000/api/v1/users/verifytoken", { verificationToken: finalOtp,username:username }, { withCredentials: true })
+      const response=await api.post("/api/v1/users/verifytoken", { verificationToken: finalOtp,username:username }, { withCredentials: true })
       console.log("OTP verification response",response)
       if(!response.data){
         throw new Error("Invalid OTP")

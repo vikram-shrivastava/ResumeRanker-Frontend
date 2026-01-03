@@ -15,7 +15,7 @@ import {
 import { CldUploadWidget } from 'next-cloudinary';
 import { toast } from 'sonner';
 import axios from 'axios';
-
+import api from '@/utils/axiosInstance';
 interface Resume {
   _id: string;
   originalFilename: string;
@@ -39,7 +39,7 @@ export default function TailorResumePage() {
   useEffect(()=>{
     async function fetchRecentResumes (){
       try {
-        const response = await axios.get('http://localhost:8000/api/v1/resume/get-all-resume',{withCredentials:true});
+        const response = await api.get('/api/v1/resume/get-all-resume',{withCredentials:true});
         console.log("Recent Resumes Response:",response);
         const resume = response.data.data;
         setRecentResumes(resume);
@@ -63,7 +63,7 @@ export default function TailorResumePage() {
     setShowResult(false);
 
     try {
-      const response=await axios.post("http://localhost:8000/api/v1/ats/tailor-resume-for-job",{resumeId:selectedResume._id,jobDescription:jobDescription,dataforresume:additionalSkills},{responseType: "blob",withCredentials:true});
+      const response=await api.post("/api/v1/ats/tailor-resume-for-job",{resumeId:selectedResume._id,jobDescription:jobDescription,dataforresume:additionalSkills},{responseType: "blob",withCredentials:true});
       console.log("Tailor Resume Response:",response);
       const pdfBlob = new Blob([response.data], { type: "application/pdf" });
       const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -78,12 +78,16 @@ export default function TailorResumePage() {
 
   };
 
-    const handleUploadSuccess = (result:any) => {
+    const handleUploadSuccess = async(result:any) => {
     if (result.event === "success") {
       const info = result.info;
 
       setCloudinaryUrl(info.secure_url);
-      setSelectedResume({ _id: info.asset_id, originalFilename: info.original_filename + '.' + info.format, updatedAt: 'Just now' });
+      const response=await api.post("/api/v1/resume/save-resume",{resumelink:info.secure_url,originalFilename:info.original_filename + '.' + info.format},{withCredentials:true});
+      console.log("Response:",response)
+      const resumeId=response.data.data._id;
+      console.log("Uploaded Resume ID:",resumeId)
+      setSelectedResume({ _id: resumeId, originalFilename: info.original_filename + '.' + info.format, updatedAt: 'Just now' });
       
       setRecentResumes(prev => [{ _id: info.asset_id, originalFilename: info.original_filename + '.' + info.format, updatedAt: 'Just now' }, ...prev]);
       setIsModalOpen(false);
