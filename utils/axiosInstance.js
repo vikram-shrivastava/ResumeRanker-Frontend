@@ -5,7 +5,7 @@ const api = axios.create({
   withCredentials: true
 });
 
-// Request interceptor to add token
+// Request interceptor to add access token
 api.interceptors.request.use(config => {
   const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -24,9 +24,7 @@ const processQueue = (error, token = null) => {
 };
 
 api.interceptors.response.use(
-  response => {
-    return response;
-  },
+  response => response,
   async error => {
     const originalRequest = error.config;
 
@@ -44,11 +42,21 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Refresh token
-        const res = await api.post("/api/v1/users/refreshtoken");
-        const newToken = res.data.accessToken;
+        // ⚡ Use separate instance for refresh
+        const refreshApi = axios.create({
+          baseURL: process.env.NEXT_PUBLIC_API_URL,
+          withCredentials: true
+        });
 
+        const res = await refreshApi.post("/api/v1/users/refreshtoken");
+
+        if (!res || res.status !== 200 || !res.data.accessToken) {
+          throw new Error("Refresh token invalid");
+        }
+
+        const newToken = res.data.accessToken;
         localStorage.setItem("token", newToken);
+
         api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
         originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
 
@@ -57,9 +65,10 @@ api.interceptors.response.use(
         return api(originalRequest);
 
       } catch (err) {
+        console.error("Refresh token failed", err);
         processQueue(err, null);
 
-        // Logout API call (use separate instance without auth header)
+        // ⚡ Logout with separate instance
         try {
           const logoutApi = axios.create({
             baseURL: process.env.NEXT_PUBLIC_API_URL,

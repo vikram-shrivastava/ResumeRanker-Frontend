@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
@@ -13,6 +13,14 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const {auth} =useAuth();
+
+  useEffect(()=>{
+    const user=localStorage.getItem("user");
+    if(user){
+      window.location.href="/";
+    }
+  },[])
+
   const handleSubmit = async(e: React.FormEvent) => {
    try {
      e.preventDefault();

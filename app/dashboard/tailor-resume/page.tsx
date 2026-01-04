@@ -69,6 +69,12 @@ export default function TailorResumePage() {
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl); // opens PDF in new tab
     } catch (error) {
+      if(error instanceof axios.AxiosError){
+        if(error.response?.status===429){
+          toast.error("You have reached the generation limit. Please try again later.");
+          return;
+        }
+      }
       console.error("Error tailoring resume:",error);
       toast.error("Failed to tailor resume. Please try again.");
     } finally {
@@ -83,16 +89,26 @@ export default function TailorResumePage() {
       const info = result.info;
 
       setCloudinaryUrl(info.secure_url);
-      const response=await api.post("/api/v1/resume/save-resume",{resumelink:info.secure_url,originalFilename:info.original_filename + '.' + info.format},{withCredentials:true});
-      console.log("Response:",response)
-      const resumeId=response.data.data._id;
-      console.log("Uploaded Resume ID:",resumeId)
-      setSelectedResume({ _id: resumeId, originalFilename: info.original_filename + '.' + info.format, updatedAt: 'Just now' });
-      
-      setRecentResumes(prev => [{ _id: info.asset_id, originalFilename: info.original_filename + '.' + info.format, updatedAt: 'Just now' }, ...prev]);
-      setIsModalOpen(false);
-
-      toast.success("Resume uploaded successfully!");
+      try {
+        const response=await api.post("/api/v1/resume/save-resume",{resumelink:info.secure_url,originalFilename:info.original_filename + '.' + info.format},{withCredentials:true});
+        console.log("Response:",response)
+        const resumeId=response.data.data._id;
+        console.log("Uploaded Resume ID:",resumeId)
+        setSelectedResume({ _id: resumeId, originalFilename: info.original_filename + '.' + info.format, updatedAt: 'Just now' });
+        
+        setRecentResumes(prev => [{ _id: info.asset_id, originalFilename: info.original_filename + '.' + info.format, updatedAt: 'Just now' }, ...prev]);
+        setIsModalOpen(false);
+  
+        toast.success("Resume uploaded successfully!");
+      } catch (error) {
+        if(error instanceof axios.AxiosError){
+          if(error.response?.status===429){
+            toast.error("You have reached the generation limit. Please try again later.");
+            return;
+          }
+        }
+        toast.error("Failed to upload resume. Please try again.");
+      }
     }
   };
 

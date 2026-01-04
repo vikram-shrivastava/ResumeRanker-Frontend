@@ -1,9 +1,10 @@
 'use client';
 
 import axios from "axios";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import api from "@/utils/axiosInstance";
+import Navbar from "@/components/Navbar";
 const OTP_LENGTH = 6;
 
 export default function VerifyPage() {
@@ -11,6 +12,18 @@ export default function VerifyPage() {
   const [loading, setLoading] = useState(false);
 
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(()=>{
+    const user=localStorage.getItem("user");
+    if(!user){
+      window.location.href="/login";
+    }else{
+      const isVerified=JSON.parse(user).isVerified;
+      if(isVerified){
+        window.location.href="/";
+      }
+    }
+  },[])
 
   const handleChange = (value: string, index: number) => {
     if (!/^\d?$/.test(value)) return;
@@ -61,6 +74,8 @@ export default function VerifyPage() {
   };
 
   return (
+    <>
+      <Navbar/>
     <div className="flex flex-col justify-center items-center h-screen gap-6">
       <div className="flex gap-3">
         {otp.map((digit, index) => (
@@ -106,5 +121,6 @@ export default function VerifyPage() {
         {loading ? "Verifying..." : "Submit"}
       </button>
     </div>
+    </>
   );
 }

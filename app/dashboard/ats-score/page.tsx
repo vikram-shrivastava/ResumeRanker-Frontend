@@ -32,10 +32,8 @@ export default function GetATSPage() {
   const [atsMode, setAtsMode] = useState<'jd' | 'role'>('jd');
   const [jobDescription, setJobDescription] = useState('');
   const [jobRole, setJobRole] = useState('');
-
   const [cloudinaryUrl, setCloudinaryUrl] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
-
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
 
@@ -59,23 +57,23 @@ export default function GetATSPage() {
       return;
     }
 
-    const response = await api.post('/api/v1/resume/save-resume', { resumelink: cloudinaryUrl, originalFilename: uploadedFileName }, { withCredentials: true });
-    console.log('Resume Save Response:', response);
-    const resumeId = response.data.data._id;
-    if (atsMode === 'jd' && !jobDescription.trim()) {
-      toast.error('Please provide job description');
-      return;
-    }
-
-    if (atsMode === 'role' && !jobRole.trim()) {
-      toast.error('Please provide target job role');
-      return;
-    }
-
-    setIsAnalyzing(true);
-
     try {
-      const response = await api.post('/api/v1/ats/create-ats-score', {
+      const response = await api.post('/api/v1/resume/save-resume', { resumelink: cloudinaryUrl, originalFilename: uploadedFileName }, { withCredentials: true });
+      console.log('Resume Save Response:', response);
+      const resumeId = response.data.data._id;
+      if (atsMode === 'jd' && !jobDescription.trim()) {
+        toast.error('Please provide job description');
+        return;
+      }
+  
+      if (atsMode === 'role' && !jobRole.trim()) {
+        toast.error('Please provide target job role');
+        return;
+      }
+  
+      setIsAnalyzing(true);
+      console.log('Generating ATS Score with:', { resumeId, atsMode, jobDescription, jobRole });
+      const response2 = await api.post('/api/v1/ats/create-ats-score', {
         resumeId: resumeId,
         atsMode,
         jobDescription,
@@ -83,19 +81,26 @@ export default function GetATSPage() {
       }, { withCredentials: true });
 
       setAnalysis({
-        score: response.data.data.totalATSScore,
+        score: response2.data.data.totalATSScore,
         fileName: uploadedFileName,
-        roleDetected: response.data.data.roleDetected,
-        summary: response.data.data.summary,
-        keywordsFound: response.data.data.keywordsFound,
-        keywordsMissing: response.data.data.keywordsMissing,
-        improvements: response.data.data.improvements
+        roleDetected: response2.data.data.roleDetected,
+        summary: response2.data.data.summary,
+        keywordsFound: response2.data.data.keywordsFound,
+        keywordsMissing: response2.data.data.keywordsMissing,
+        improvements: response2.data.data.improvements
       });
 
       toast.success('ATS Analysis Complete');
     } catch (error) {
-      toast.error('Failed to analyze resume');
-    } finally {
+      if(error instanceof axios.AxiosError){
+        if(error.response?.status===429){
+          toast.error("You have reached the generation limit. Please try again later.");
+          return;
+        }
+      }
+      toast.error('Failed to generate ATS score. Please try again.');
+      console.error('ATS Generation Error:', error);
+    }finally{
       setIsAnalyzing(false);
     }
   };
@@ -213,7 +218,7 @@ export default function GetATSPage() {
               <button
                 onClick={handleGenerateATS}
                 disabled={isAnalyzing}
-                className="px-6 py-2 bg-black text-white rounded-lg"
+                className={`px-6 py-2 bg-black text-white rounded-lg ${isAnalyzing ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-800"}`}
               >
                 Generate ATS Score
               </button>
