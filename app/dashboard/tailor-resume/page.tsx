@@ -1,16 +1,17 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { 
-  Upload, 
-  FileText, 
-  X, 
-  CheckCircle2, 
-  Sparkles, 
-  Download, 
+import {
+  Upload,
+  FileText,
+  X,
+  CheckCircle2,
+  Sparkles,
+  Download,
   Eye,
   ChevronRight,
-  Plus
+  Plus,
+  XCircle
 } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
 import { toast } from 'sonner';
@@ -29,53 +30,61 @@ export default function TailorResumePage() {
   const [jobDescription, setJobDescription] = useState('');
   const [additionalSkills, setAdditionalSkills] = useState('');
   const [cloudinaryUrl, setCloudinaryUrl] = useState<string | null>(null);
-  const [recentResumes,setRecentResumes]=useState<Resume[]>([]);
+  const [recentResumes, setRecentResumes] = useState<Resume[]>([]);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   // Generation States
   const [isGenerating, setIsGenerating] = useState(false);
   const [showResult, setShowResult] = useState(false);
-
+  const [message, setMessage] = useState<string>('');
   // --- Handlers ---
 
-  useEffect(()=>{
-    async function fetchRecentResumes (){
+  useEffect(() => {
+    async function fetchRecentResumes() {
       try {
-        const response = await api.get('/api/v1/resume/get-all-resume',{withCredentials:true});
-        console.log("Recent Resumes Response:",response);
+        const response = await api.get('/api/v1/resume/get-all-resume', { withCredentials: true });
+        console.log("Recent Resumes Response:", response);
         const resume = response.data.data;
         setRecentResumes(resume);
-        console.log("Recent Resumes Fetched:",resume);
+        console.log("Recent Resumes Fetched:", resume);
         toast.success("Recent resumes fetched successfully.");
       } catch (error) {
         toast.error("Failed to fetch recent resumes.");
       }
     }
     fetchRecentResumes();
-  },[])
+  }, [])
+  useEffect(() => {
+  return () => {
+    if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+  };
+}, [pdfUrl]);
+
   const handleSelectResume = (resume: typeof recentResumes[0]) => {
     setSelectedResume(resume);
     setIsModalOpen(false);
   };
-  const totalResumes=recentResumes.length;
-  const handleGenerate = async() => {
+  const totalResumes = recentResumes.length;
+  const handleGenerate = async () => {
     if (!selectedResume || !jobDescription) return;
-    
+
     setIsGenerating(true);
     setShowResult(false);
 
     try {
-      const response=await api.post("/api/v1/ats/tailor-resume-for-job",{resumeId:selectedResume._id,jobDescription:jobDescription,dataforresume:additionalSkills},{responseType: "blob",withCredentials:true});
-      console.log("Tailor Resume Response:",response);
+      const response = await api.post("/api/v1/ats/tailor-resume-for-job", { resumeId: selectedResume._id, jobDescription: jobDescription, dataforresume: additionalSkills }, { responseType: "blob", withCredentials: true });
+      setMessage(response.data.message == "Resume tailored successfully" ? response.data.message : "Resume Tailored Failed");
+      console.log("Tailor Resume Response:", response);
       const pdfBlob = new Blob([response.data], { type: "application/pdf" });
       const pdfUrl = URL.createObjectURL(pdfBlob);
-      window.open(pdfUrl); // opens PDF in new tab
+      setPdfUrl(pdfUrl);
     } catch (error) {
-      if(error instanceof axios.AxiosError){
-        if(error.response?.status===429){
+      if (error instanceof axios.AxiosError) {
+        if (error.response?.status === 429) {
           toast.error("You have reached the generation limit. Please try again later.");
           return;
         }
       }
-      console.error("Error tailoring resume:",error);
+      console.error("Error tailoring resume:", error);
       toast.error("Failed to tailor resume. Please try again.");
     } finally {
       setIsGenerating(false);
@@ -84,25 +93,25 @@ export default function TailorResumePage() {
 
   };
 
-    const handleUploadSuccess = async(result:any) => {
+  const handleUploadSuccess = async (result: any) => {
     if (result.event === "success") {
       const info = result.info;
 
       setCloudinaryUrl(info.secure_url);
       try {
-        const response=await api.post("/api/v1/resume/save-resume",{resumelink:info.secure_url,originalFilename:info.original_filename + '.' + info.format},{withCredentials:true});
-        console.log("Response:",response)
-        const resumeId=response.data.data._id;
-        console.log("Uploaded Resume ID:",resumeId)
+        const response = await api.post("/api/v1/resume/save-resume", { resumelink: info.secure_url, originalFilename: info.original_filename + '.' + info.format }, { withCredentials: true });
+        console.log("Response:", response)
+        const resumeId = response.data.data._id;
+        console.log("Uploaded Resume ID:", resumeId)
         setSelectedResume({ _id: resumeId, originalFilename: info.original_filename + '.' + info.format, updatedAt: 'Just now' });
-        
+
         setRecentResumes(prev => [{ _id: info.asset_id, originalFilename: info.original_filename + '.' + info.format, updatedAt: 'Just now' }, ...prev]);
         setIsModalOpen(false);
-  
+
         toast.success("Resume uploaded successfully!");
       } catch (error) {
-        if(error instanceof axios.AxiosError){
-          if(error.response?.status===429){
+        if (error instanceof axios.AxiosError) {
+          if (error.response?.status === 429) {
             toast.error("You have reached the generation limit. Please try again later.");
             return;
           }
@@ -114,7 +123,7 @@ export default function TailorResumePage() {
 
   return (
     <div className="min-h-full p-6 md:p-8 max-w-7xl mx-auto">
-      
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight text-black">Tailor Resume with AI</h1>
@@ -124,16 +133,16 @@ export default function TailorResumePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
-        
+
         {/* --- LEFT COLUMN: Inputs --- */}
         <div className="space-y-6">
-          
+
           {/* 1. Resume Selector */}
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <label className="block text-sm font-bold text-gray-900 mb-4">
               1. Select Base Resume
             </label>
-            
+
             {selectedResume ? (
               <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
                 <div className="flex items-center gap-3">
@@ -145,7 +154,7 @@ export default function TailorResumePage() {
                     <p className="text-xs text-gray-500">Uploaded: {selectedResume.updatedAt.split("T")[0]}</p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsModalOpen(true)}
                   className="text-xs font-medium text-gray-600 hover:text-black underline"
                 >
@@ -153,16 +162,16 @@ export default function TailorResumePage() {
                 </button>
               </div>
             ) : (
-              <button 
-              onClick={() => setIsModalOpen(true)}
-              className="w-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all group"
-              >  
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="w-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all group"
+              >
                 <div className="p-3 bg-gray-100 rounded-full mb-3 group-hover:bg-white group-hover:shadow-sm">
                   <Upload size={24} className="text-gray-600" />
                 </div>
                 <p className="text-sm font-medium text-gray-900">Choose or Upload Resume</p>
               </button>
-                )}
+            )}
           </div>
 
           {/* 2. Job Description */}
@@ -170,7 +179,7 @@ export default function TailorResumePage() {
             <label className="block text-sm font-bold text-gray-900 mb-2">
               2. Paste Job Description (JD)
             </label>
-            <textarea 
+            <textarea
               className="w-full h-48 p-4 text-sm text-black border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent bg-gray-50 resize-none"
               placeholder="Paste the full job description here..."
               value={jobDescription}
@@ -185,8 +194,8 @@ export default function TailorResumePage() {
                 3. Additional Context <span className="text-gray-400 font-normal">(Optional)</span>
               </label>
             </div>
-            <input 
-              type="text" 
+            <input
+              type="text"
               className="w-full text-black p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent bg-gray-50"
               placeholder="e.g. Include my certification in AWS, emphasize leadership..."
               value={additionalSkills}
@@ -199,86 +208,86 @@ export default function TailorResumePage() {
             onClick={handleGenerate}
             disabled={!selectedResume || !jobDescription || isGenerating}
             className={`w-full py-4 rounded-lg flex items-center justify-center gap-2 font-semibold text-white transition-all shadow-md
-              ${(!selectedResume || !jobDescription || isGenerating) 
-                ? 'bg-gray-300 cursor-not-allowed text-gray-500' 
+              ${(!selectedResume || !jobDescription || isGenerating)
+                ? 'bg-gray-300 cursor-not-allowed text-gray-500'
                 : 'bg-black hover:bg-gray-800 shadow-gray-200'}
             `}
           >
             {isGenerating ? (
-              <>
-                <Sparkles className="animate-spin" size={20} /> Tailoring Resume...
-              </>
+              <div className="flex items-center gap-2">
+                <Sparkles className="animate-spin" size={20} />
+                <span>Tailoring Resume...</span>
+              </div>
+            ) : message === "Resume tailored successfully" ? (
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle2 size={20} />
+                <span>Resume tailored successfully</span>
+              </div>
+            ) : message === "Resume tailoring failed" ? (
+              <div className="flex items-center gap-2 text-red-600">
+                <XCircle size={20} />
+                <span>Resume tailoring failed</span>
+              </div>
             ) : (
-              <>
-                <Sparkles size={20} /> Generate Tailored Resume
-              </>
+              <span>Tailor Resume</span>
             )}
+
           </button>
         </div>
 
         {/* --- RIGHT COLUMN: Preview / Result --- */}
         <div className="bg-gray-100 rounded-xl border border-gray-200 p-4 flex flex-col items-center justify-center min-h-[500px] lg:h-auto relative overflow-hidden">
-          
+
           {/* State 1: Empty Placeholder */}
           {!isGenerating && !showResult && (
             <div className="text-center text-gray-400">
               <div className="w-24 h-32 border-2 border-dashed border-gray-300 rounded mx-auto mb-4 bg-gray-50"></div>
-              <p className="text-sm">Your tailored resume preview <br/>will appear here.</p>
+              <p className="text-sm">Your tailored resume preview <br />will appear here.</p>
             </div>
           )}
 
           {/* State 2: Generating Animation */}
           {isGenerating && (
             <div className="text-center animate-pulse">
-               <div className="w-[300px] h-[400px] bg-white shadow-lg rounded mb-4 p-6 space-y-4">
-                  <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-full"></div>
-                  <div className="h-4 bg-gray-200 rounded w-full"></div>
-                  <div className="h-20 bg-gray-200 rounded w-full mt-8"></div>
-               </div>
-               <p className="text-gray-600 font-medium text-sm">AI is rewriting your bullet points...</p>
+              <div className="w-[300px] h-[400px] bg-white shadow-lg rounded mb-4 p-6 space-y-4">
+                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-4 bg-gray-200 rounded w-full"></div>
+                <div className="h-4 bg-gray-200 rounded w-full"></div>
+                <div className="h-20 bg-gray-200 rounded w-full mt-8"></div>
+              </div>
+              <p className="text-gray-600 font-medium text-sm">AI is rewriting your bullet points...</p>
             </div>
           )}
 
           {/* State 3: Result (PDF Preview) */}
-          {showResult && (
-            <div className="w-full h-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {showResult && pdfUrl && (
+            <div className="w-full h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
+
               {/* Success Badge */}
-              <div className="mb-6 flex items-center gap-2 bg-emerald-100 text-emerald-800 px-4 py-2 rounded-full text-sm font-medium">
+              <div className="mb-4 flex items-center gap-2 bg-emerald-100 text-emerald-800 px-4 py-2 rounded-full text-sm font-medium">
                 <CheckCircle2 size={16} /> Resume Tailored Successfully!
               </div>
 
-              {/* Mock PDF Viewer */}
-              <div className="w-full max-w-md bg-white shadow-xl rounded-lg border border-gray-200 flex-1 relative overflow-hidden group">
-                 {/* This represents the PDF content */}
-                 <div className="p-8 space-y-4 opacity-50 blur-[0.5px] select-none scale-[0.8] origin-top">
-                    <div className="h-8 bg-gray-900 rounded w-2/3 mb-6"></div>
-                    <div className="flex gap-4 mb-6">
-                        <div className="h-4 bg-gray-300 w-1/4"></div>
-                        <div className="h-4 bg-gray-300 w-1/4"></div>
-                    </div>
-                    <div className="h-4 bg-gray-200 w-full"></div>
-                    <div className="h-4 bg-gray-200 w-5/6"></div>
-                    <div className="h-4 bg-gray-200 w-full"></div>
-                    
-                    <div className="mt-8 h-6 bg-gray-400 w-1/3"></div>
-                    <div className="h-4 bg-gray-200 w-full"></div>
-                    <div className="h-4 bg-gray-200 w-full"></div>
-                 </div>
-
-                 {/* Overlay Actions */}
-                 <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                    <button className="bg-white text-black px-4 py-2 rounded-lg shadow-lg font-medium text-sm flex items-center gap-2 hover:bg-gray-50">
-                        <Eye size={16} /> Preview
-                    </button>
-                 </div>
+              {/* REAL PDF PREVIEW */}
+              <div className="w-full h-[600px] bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
+                <iframe
+                  id="resume-preview"
+                  src={pdfUrl}
+                  className="w-full h-full border-none"
+                  title="Resume Preview"
+                />
               </div>
 
               {/* Bottom Actions */}
-              <div className="mt-6 flex gap-4 w-full max-w-md">
-                 <button className="flex-1 bg-black text-white py-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2 shadow-lg hover:bg-gray-800 transition-all">
-                    <Download size={18} /> Download PDF
-                 </button>
+              <div className="mt-4 flex gap-4 w-full max-w-md">
+                <a
+                  href={pdfUrl}
+                  download="Tailored_Resume.pdf"
+                  className="flex-1 bg-black text-white py-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2 shadow-lg hover:bg-gray-800 transition-all"
+                >
+                  <Download size={18} /> Download PDF
+                </a>
+
               </div>
             </div>
           )}
@@ -286,69 +295,71 @@ export default function TailorResumePage() {
       </div>
 
       {/* --- MODAL COMPONENT --- */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200">
-            
-            {/* Modal Header */}
-            <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-              <h3 className="font-bold text-lg text-gray-900">Select Resume</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-black">
-                <X size={20} />
-              </button>
-            </div>
+      {
+        isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200">
 
-            {/* Modal Body */}
-            <div className="p-5">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Recent Uploads</p>
-              
-              <div className="space-y-2 mb-6">
-                {totalResumes>0 && recentResumes.map((resume) => (
-                  <button
-                    key={resume._id}
-                    onClick={() => handleSelectResume(resume)}
-                    className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-black hover:bg-gray-50 transition-all group text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-gray-100 rounded text-gray-500 group-hover:text-black transition-colors">
-                        <FileText size={18} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">{resume.originalFilename}</p>
-                        <p className="text-xs text-gray-500">{resume.updatedAt.split("T")[0]}</p>
-                      </div>
-                    </div>
-                    <ChevronRight size={16} className="text-gray-300 group-hover:text-black" />
-                  </button>
-                ))}
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                  <div className="w-full border-t border-gray-200"></div>
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-white px-2 text-xs text-gray-400">OR</span>
-                </div>
-              </div>
-                 <CldUploadWidget uploadPreset="Projects" onSuccess={handleUploadSuccess}>
-                {({ open }) => (
-              <div className="mt-6" onClick={()=>open()}>
-                <button 
-                  onClick={handleUploadSuccess}
-                  className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 font-medium text-sm flex items-center justify-center gap-2 hover:border-black hover:text-black transition-all"
-                >
-                  <Plus size={18} /> Upload New Resume
+              {/* Modal Header */}
+              <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <h3 className="font-bold text-lg text-gray-900">Select Resume</h3>
+                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-black">
+                  <X size={20} />
                 </button>
               </div>
-              )}
-              </CldUploadWidget>
+
+              {/* Modal Body */}
+              <div className="p-5">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Recent Uploads</p>
+
+                <div className="space-y-2 mb-6">
+                  {totalResumes > 0 && recentResumes.map((resume) => (
+                    <button
+                      key={resume._id}
+                      onClick={() => handleSelectResume(resume)}
+                      className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-black hover:bg-gray-50 transition-all group text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-gray-100 rounded text-gray-500 group-hover:text-black transition-colors">
+                          <FileText size={18} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{resume.originalFilename}</p>
+                          <p className="text-xs text-gray-500">{resume.updatedAt.split("T")[0]}</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={16} className="text-gray-300 group-hover:text-black" />
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div className="w-full border-t border-gray-200"></div>
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-white px-2 text-xs text-gray-400">OR</span>
+                  </div>
+                </div>
+                <CldUploadWidget uploadPreset="Projects" onSuccess={handleUploadSuccess}>
+                  {({ open }) => (
+                    <div className="mt-6" onClick={() => open()}>
+                      <button
+                        onClick={handleUploadSuccess}
+                        className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 font-medium text-sm flex items-center justify-center gap-2 hover:border-black hover:text-black transition-all"
+                      >
+                        <Plus size={18} /> Upload New Resume
+                      </button>
+                    </div>
+                  )}
+                </CldUploadWidget>
+              </div>
+
             </div>
-
           </div>
-        </div>
-      )}
+        )
+      }
 
-    </div>
+    </div >
   );
 }
