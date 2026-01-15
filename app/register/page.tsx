@@ -8,6 +8,14 @@ import { toast } from "sonner";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/utils/axiosInstance";
+
+interface User {
+  id: string;
+  email: string;
+  username: string;
+  isVerified: boolean;
+}
+
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
@@ -17,7 +25,7 @@ export default function SignupPage() {
 
     useEffect(()=>{
       const user=localStorage.getItem("user");
-      if(user){
+      if(user && (JSON.parse(user) as User).isVerified){
         window.location.href="/";
       }
     },[])

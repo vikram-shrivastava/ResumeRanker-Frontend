@@ -41,7 +41,7 @@ function Navbar() {
 
           {/* Auth Buttons */}
           <div className="flex items-center gap-4 text-sm font-medium">
-            {user ? (
+            {user && user.isVerified ? (
               <Link href="/dashboard">
                 <button className="rounded-lg bg-black px-5 py-2.5 text-white shadow-md shadow-gray-200 hover:bg-gray-800 transition-all hover:-translate-y-0.5">
                   Go to Dashboard
