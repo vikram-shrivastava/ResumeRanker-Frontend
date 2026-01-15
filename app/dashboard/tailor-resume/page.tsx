@@ -194,8 +194,7 @@ export default function TailorResumePage() {
                 3. Additional Context <span className="text-gray-400 font-normal">(Optional)</span>
               </label>
             </div>
-            <input
-              type="text"
+            <textarea
               className="w-full text-black p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent bg-gray-50"
               placeholder="e.g. Include my certification in AWS, emphasize leadership..."
               value={additionalSkills}

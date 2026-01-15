@@ -49,7 +49,7 @@ export default function DashboardNavbar() {
   };
 
   return (
-    <nav className="flex items-center justify-between px-8 py-5 w-full bg-transparent">
+    <nav className="flex items-center justify-between px-8 py-5 w-full bg-transparent ">
       
       {/* Left: Breadcrumbs (Replaces Logo) */}
       <div className="flex items-center text-sm text-gray-500">

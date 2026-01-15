@@ -1,6 +1,24 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { Bar, BarChart, CartesianGrid, Cell } from "recharts"
+import {
+  ChartTooltip, ChartTooltipContent,
+} from "@/components/ui/chart"
+import {
+  ChartContainer,
+  type ChartConfig,
+} from "@/components/ui/chart"
+import { Button } from "@/components/ui/button"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import {
   Upload,
   FileText,
@@ -16,6 +34,16 @@ import {
   Trash2,
   Share2
 } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
@@ -33,57 +61,125 @@ type Resume = {
   atsScore: number;
 };
 
+
+const chartConfig = {
+  primary: {
+    label: "ATS Score",
+    color: "#2563eb", // blue-600
+  },
+  secondary: {
+    label: "ATS Score (alt)",
+    color: "#93c5fd", // blue-300
+  },
+} satisfies ChartConfig
+
+
 export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [allResumes, setAllResumes] = useState<Resume[]>([])
+  const [tableResumes, setTableResumes] = useState<Resume[]>([])
+  const [page, setPage] = useState(1)
+  const [limit] = useState(5)
+  const [totalPages, setTotalPages] = useState(1)
+
   const { user } = useAuth();
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const response = await api.get("/api/v1/resume/get-all-resume", { withCredentials: true });
-        console.log("resumes data", response.data);
-        setResumes(response.data.data);
-        toast.success("Resumes fetched successfully");
-      } catch (error: any) {
-        setResumes([]);
-        toast.error("No Resume Found");
-      }
+useEffect(() => {
+  async function fetchPaginated() {
+    try {
+      const res = await api.get(
+        `/api/v1/resume/get-all-resume-pagination?page=${page}&limit=${limit}`,
+        { withCredentials: true }
+      )
+
+      setTableResumes(res.data.data.resumes)
+      setTotalPages(res.data.data.pagination.totalPages)
+    } catch {
+      setTableResumes([])
+      toast.error("No Resume Found")
     }
-    fetchData();
-  }, [])
+  }
+
+  fetchPaginated()
+}, [page, limit])
+
+
+useEffect(() => {
+  async function fetchAll() {
+    try {
+      const res = await api.get(
+        `/api/v1/resume/get-all-resume`,
+        { withCredentials: true }
+      )
+
+      // ✅ FIX: response.data.data IS the array
+      setAllResumes(res.data.data)
+    } catch {
+      toast.error("No Resume Found")
+    }
+  }
+
+  fetchAll()
+}, [])
+
+
   // Derived Stats
   const username = user ? user.username : "";
-  const totalResumes = (resumes) ? resumes?.length : (0);
-  const averageScore = ((totalResumes > 0) ? (Math.round(resumes?.reduce((a, b) => a + b.atsScore, 0) / totalResumes)) : 0);
-  const tailoredResumes = resumes.filter(r => r.tailored).length;
+  const totalResumes = allResumes.length
+
+const averageScore =
+  totalResumes > 0
+    ? Math.round(
+        allResumes.reduce((sum, r) => sum + r.atsScore, 0) / totalResumes
+      )
+    : 0
+
+const tailoredResumes = allResumes.filter(r => r.tailored).length
+
+
+  const filteredResumes: Resume[] = tableResumes.filter(r =>
+    r.originalFilename.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+const chartData = tableResumes.map((resume, index) => ({
+  label: `V${tableResumes.length - index}`,
+  name: resume.originalFilename,
+  score: resume.atsScore,
+  fill:
+    index % 2 === 0
+      ? "var(--color-primary)"
+      : "var(--color-secondary)",
+}))
+
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans p-6 md:p-10">
 
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-black">Dashboard</h1>
-          <p className="text-gray-500 text-sm mt-1">Welcome back, {username}. Here is your resume performance.</p>
+          <p className="text-gray-500 text-sm mt-1 ">Welcome back, {username}. Here is your resume performance.</p>
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all shadow-sm">
+          <Button variant="default">
             <Link href="/dashboard/tailor-resume" className="flex items-center gap-2">
               <FileText size={16} /> Tailor Resume
             </Link>
-          </button>
-          <button className="flex items-center gap-2 rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 transition-all shadow-lg shadow-gray-200">
+          </Button>
+          <Button variant="outline">
             <Link href="/dashboard/ats-score" className="flex items-center gap-2">
-              <Upload size={16} /> Get ATS
+              <Upload size={16} /> Get ATS Score
             </Link>
-          </button>
+          </Button>
         </div>
       </div>
 
       <div className="flex flex-col gap-6">
 
         {/* --- Stats Cards --- */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <StatCard
             title="Total Resumes"
             value={totalResumes.toString()}
@@ -131,19 +227,20 @@ export default function DashboardPage() {
 
             {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-gray-500 font-medium">
-                  <tr>
-                    <th className="px-6 py-3">Resume Name</th>
-                    <th className="px-6 py-3">Score</th>
-                    <th className="px-6 py-3">Status</th>
-                    <th className="px-6 py-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 relative">
-                  {(totalResumes > 0) ? (resumes.filter(r => r.originalFilename.toLowerCase().includes(searchTerm.toLowerCase())).map((resume) => (
-                    <tr key={resume._id} className="hover:bg-gray-50 transition-colors group">
-                      <td className="px-6 py-4">
+              <Table className="w-full text-left text-sm">
+                <TableCaption>A list of your recent resumes.</TableCaption>
+                <TableHeader className="bg-gray-50 text-gray-500 font-medium">
+                  <TableRow>
+                    <TableHead className="px-6 py-3">Resume Name</TableHead>
+                    <TableHead className="px-6 py-3">Score</TableHead>
+                    <TableHead className="px-6 py-3">Status</TableHead>
+                    <TableHead className="px-6 py-3 text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-gray-100 relative">
+                  {(filteredResumes.length > 0) ? (filteredResumes.map(resume => (
+                    <TableRow key={resume._id} className="hover:bg-gray-50 transition-colors group">
+                      <TableCell className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-gray-100 rounded text-gray-600 group-hover:bg-white group-hover:shadow-sm transition-all">
                             <FileText size={16} />
@@ -157,8 +254,8 @@ export default function DashboardPage() {
                             <div className="text-xs text-gray-500">{resume.updatedAt.split("T")[0]}</div>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <span className={`font-semibold ${getScoreColor(resume.atsScore)}`}>{resume.atsScore}%</span>
                           {/* Mini Progress Bar */}
@@ -169,11 +266,11 @@ export default function DashboardPage() {
                             />
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
                         <StatusBadge tailored={resume.tailored} />
-                      </td>
-                      <td className="px-6 py-4 text-right">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
                         <button className="text-gray-400 hover:text-black transition-colors" onClick={() => setModalOpen(!modalOpen)}>
                           <MoreHorizontal size={18} />
                         </button>
@@ -192,24 +289,61 @@ export default function DashboardPage() {
                             </ul>
                           </div>
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))) : (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                    <TableRow>
+                      <TableCell colSpan={5} className="px-6 py-4 text-center text-gray-500">
                         No resumes found.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
             {/* Table Footer */}
-            {(totalResumes > 4) &&
-              <div className="p-4 border-t border-gray-100 bg-gray-50 text-xs text-gray-500 text-center cursor-pointer hover:bg-gray-100 transition-colors">
-                View all documents
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-gray-100 flex justify-center">
+                <Pagination>
+                  <PaginationContent>
+
+                    {/* Previous */}
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => page > 1 && setPage(page - 1)}
+                        className={page === 1 ? "pointer-events-none opacity-50" : " cursor-pointer"}
+                      />
+                    </PaginationItem>
+
+                    {/* Page numbers */}
+                    {[...Array(totalPages)].map((_, i) => {
+                      const pageNumber = i + 1
+                      return (
+                        <PaginationItem key={pageNumber}>
+                          <PaginationLink
+                            className='cursor-pointer'
+                            isActive={page === pageNumber}
+                            onClick={() => setPage(pageNumber)}
+                          >
+                            {pageNumber}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    })}
+
+                    {/* Next */}
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() => page < totalPages && setPage(page + 1)}
+                        className={page === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+
+                  </PaginationContent>
+                </Pagination>
               </div>
-            }
+            )}
+
           </div>
 
           {/* --- Insights Chart Section (Span 1 col) --- */}
@@ -219,53 +353,45 @@ export default function DashboardPage() {
               <BarChart3 size={18} className="text-gray-400" />
             </div>
 
-            {/* CSS-Only Bar Chart */}
-            <div className="relative flex items-end gap-3 h-48 pt-4 pb-2 pr-20 border-l border-b border-gray-100">
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                {[100, 75, 50, 25].map((line) => (
-                  <div
-                    key={line}
-                    className="border-b border-gray-100 text-[10px] text-gray-300 relative"
-                  >
-                    <span className="absolute -left-6 -top-1.5">{line}</span>
-                  </div>
-                ))}
-              </div>
+            {/* Shadcn Bar Chart */}
+            <ChartContainer
+              config={chartConfig}
+              className="h-[220px] w-full"
+            >
+              <BarChart
+                data={chartData}
+                margin={{ left: 0, right: 0, top: 10, bottom: 0 }}
+              >
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
 
-              {totalResumes > 0 &&
-                resumes.map((resume, index) => {
-                  // Normalize ATS score to container height (0–100 → 0–100%)
-                  const barHeight = `${resume.atsScore}%`;
+                <ChartTooltip
+                  cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value) => `${value}%`}
+                      labelFormatter={(_, payload) =>
+                        payload?.[0]?.payload?.name ?? ""
+                      }
+                    />
+                  }
+                />
 
-                  return (
-                    <div
-                      key={resume._id}
-                      className="relative group flex flex-col items-center justify-end h-full z-10"
-                    >
-                      {/* Tooltip */}
-                      <div className="absolute -top-7 bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                        {resume.atsScore}%
-                      </div>
+                <Bar
+                  dataKey="score"
+                  radius={4}
+                  fillOpacity={0.9}
+                  isAnimationActive
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.fill}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ChartContainer>
 
-                      {/* Bar */}
-                      <div
-                        className={`w-6 rounded-t-md transition-all duration-500 ${resume.atsScore >= 70
-                          ? 'bg-emerald-500'
-                          : resume.atsScore >= 50
-                            ? 'bg-amber-500'
-                            : 'bg-red-500'
-                          }`}
-                        style={{ height: barHeight }}
-                      />
-
-                      {/* Label */}
-                      <span className="text-[10px] text-gray-400 mt-2">
-                        V{resumes.length - index}
-                      </span>
-                    </div>
-                  );
-                })}
-            </div>
 
             {totalResumes > 0 &&
               <div className="mt-4 p-3 bg-gray-50 rounded-lg">
@@ -287,9 +413,9 @@ export default function DashboardPage() {
 
 function StatCard({ title, value, icon, trend, highlight }: { title: string, value: string, icon: React.ReactNode, trend?: string, highlight?: boolean }) {
   return (
-    <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm flex flex-col justify-between h-32 hover:border-gray-300 transition-all">
-      <div className="flex justify-between items-start">
-        <div className="p-2 bg-gray-50 rounded-lg text-gray-900">
+    <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm flex flex-col justify-between hover:border-gray-300 transition-all min-h-[8rem]">
+      <div className="flex justify-between items-start ">
+        <div className="bg-gray-50 rounded-lg text-gray-900 px-2 py-1 ">
           {icon}
         </div>
         {trend && (
@@ -298,9 +424,9 @@ function StatCard({ title, value, icon, trend, highlight }: { title: string, val
           </span>
         )}
       </div>
-      <div>
-        <div className="text-2xl font-bold text-gray-900 tracking-tight">{value}</div>
-        <div className="text-sm text-gray-500 font-medium">{title}</div>
+      <div className="ml-2">
+        <div className="text-2xl font-bold text-gray-900 tracking-tight break-words">{value}</div>
+        <div className="text-sm text-gray-500 font-medium break-words">{title}</div>
       </div>
     </div>
   );
