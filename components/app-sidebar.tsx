@@ -32,6 +32,7 @@ export function AppSidebar() {
     const { user } = useAuth()
     const [open, setOpen] = useState(false)
     const { state } = useSidebar()
+    const { logout } = useAuth()
     const mainNav = [
         { title: "Dashboard", url: "/dashboard", icon: Home },
         { title: "Get ATS Score", url: "/dashboard/ats-score", icon: Activity },
@@ -122,7 +123,7 @@ export function AppSidebar() {
                             <span>{user?.username ?? "User"}</span>
                         </SidebarMenuButton>
                         <SidebarMenuButton
-                            onClick={() => {/* logout */ }}
+                            onClick={() => {logout()}}
                             className="text-red-600 hover:bg-gray-100 hover:text-red-700"
                             
                         >
