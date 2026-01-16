@@ -46,7 +46,7 @@ export default function GetATSPage() {
 
     setCloudinaryUrl(url);
     setUploadedFileName(fileName);
-
+    document.body.style.overflow = "auto";
     toast.success('Resume uploaded successfully');
   }, []);
 
