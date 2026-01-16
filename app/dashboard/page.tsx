@@ -32,7 +32,8 @@ import {
   BarChart3,
   DownloadIcon,
   Trash2,
-  Share2
+  Share2,
+  ArrowRight
 } from 'lucide-react';
 import {
   Table,
@@ -76,81 +77,79 @@ const chartConfig = {
 
 export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [resumes, setResumes] = useState<Resume[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [allResumes, setAllResumes] = useState<Resume[]>([])
   const [tableResumes, setTableResumes] = useState<Resume[]>([])
   const [page, setPage] = useState(1)
   const [limit] = useState(5)
   const [totalPages, setTotalPages] = useState(1)
-
   const { user } = useAuth();
-useEffect(() => {
-  async function fetchPaginated() {
-    try {
-      const res = await api.get(
-        `/api/v1/resume/get-all-resume-pagination?page=${page}&limit=${limit}`,
-        { withCredentials: true }
-      )
+  useEffect(() => {
+    async function fetchPaginated() {
+      try {
+        const res = await api.get(
+          `/api/v1/resume/get-all-resume-pagination?page=${page}&limit=${limit}`,
+          { withCredentials: true }
+        )
 
-      setTableResumes(res.data.data.resumes)
-      setTotalPages(res.data.data.pagination.totalPages)
-    } catch {
-      setTableResumes([])
-      toast.error("No Resume Found")
+        setTableResumes(res.data.data.resumes)
+        setTotalPages(res.data.data.pagination.totalPages)
+      } catch {
+        setTableResumes([])
+        toast.error("No Resume Found")
+      }
     }
-  }
 
-  fetchPaginated()
-}, [page, limit])
+    fetchPaginated()
+  }, [page, limit])
 
 
-useEffect(() => {
-  async function fetchAll() {
-    try {
-      const res = await api.get(
-        `/api/v1/resume/get-all-resume`,
-        { withCredentials: true }
-      )
+  useEffect(() => {
+    async function fetchAll() {
+      try {
+        const res = await api.get(
+          `/api/v1/resume/get-all-resume`,
+          { withCredentials: true }
+        )
 
-      // ✅ FIX: response.data.data IS the array
-      setAllResumes(res.data.data)
-    } catch {
-      toast.error("No Resume Found")
+        // ✅ FIX: response.data.data IS the array
+        setAllResumes(res.data.data)
+      } catch {
+        toast.error("No Resume Found")
+      }
     }
-  }
 
-  fetchAll()
-}, [])
+    fetchAll()
+  }, [])
 
 
   // Derived Stats
   const username = user ? user.username : "";
   const totalResumes = allResumes.length
 
-const averageScore =
-  totalResumes > 0
-    ? Math.round(
+  const averageScore =
+    totalResumes > 0
+      ? Math.round(
         allResumes.reduce((sum, r) => sum + r.atsScore, 0) / totalResumes
       )
-    : 0
+      : 0
 
-const tailoredResumes = allResumes.filter(r => r.tailored).length
+  const tailoredResumes = allResumes.filter(r => r.tailored).length
 
 
   const filteredResumes: Resume[] = tableResumes.filter(r =>
     r.originalFilename.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-const chartData = tableResumes.map((resume, index) => ({
-  label: `V${tableResumes.length - index}`,
-  name: resume.originalFilename,
-  score: resume.atsScore,
-  fill:
-    index % 2 === 0
-      ? "var(--color-primary)"
-      : "var(--color-secondary)",
-}))
+  const chartData = tableResumes.map((resume, index) => ({
+    label: `V${tableResumes.length - index}`,
+    name: resume.originalFilename,
+    score: resume.atsScore,
+    fill:
+      index % 2 === 0
+        ? "var(--color-primary)"
+        : "var(--color-secondary)",
+  }))
 
 
   return (
@@ -271,24 +270,11 @@ const chartData = tableResumes.map((resume, index) => ({
                         <StatusBadge tailored={resume.tailored} />
                       </TableCell>
                       <TableCell className="px-6 py-4 text-right">
-                        <button className="text-gray-400 hover:text-black transition-colors" onClick={() => setModalOpen(!modalOpen)}>
-                          <MoreHorizontal size={18} />
-                        </button>
-                        {modalOpen && (
-                          <div className="absolute bottom-0 right-16 mt-2 w-40 bg-white border rounded-lg shadow-lg z-50">
-                            <ul className="text-sm">
-                              <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 justify-between">
-                                Download <DownloadIcon size={16} />
-                              </li>
-                              <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 justify-between">
-                                Delete <Trash2 size={16} />
-                              </li>
-                              <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 justify-between">
-                                Share (Beta) <Share2 size={16} />
-                              </li>
-                            </ul>
-                          </div>
-                        )}
+                        <Link href={`/dashboard/resume/${resume._id}`}>
+                          <button className="text-gray-400 hover:text-black transition-colors">
+                            <ArrowRight size={18} />
+                          </button>
+                        </Link>
                       </TableCell>
                     </TableRow>
                   ))) : (
