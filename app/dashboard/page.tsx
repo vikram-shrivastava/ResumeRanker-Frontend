@@ -33,7 +33,8 @@ import {
   DownloadIcon,
   Trash2,
   Share2,
-  ArrowRight
+  ArrowRight,
+  Ban
 } from 'lucide-react';
 import {
   Table,
@@ -50,7 +51,6 @@ import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import api from "@/utils/axiosInstance.js"
-
 type Resume = {
   _id: string;
   originalFilename: string;
@@ -255,6 +255,8 @@ export default function DashboardPage() {
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
+                      {
+                        resume.atsScore >10 &&(
                         <div className="flex items-center gap-2">
                           <span className={`font-semibold ${getScoreColor(resume.atsScore)}`}>{resume.atsScore}%</span>
                           {/* Mini Progress Bar */}
@@ -262,19 +264,43 @@ export default function DashboardPage() {
                             <div
                               className={`h-full rounded-full ${getScoreBg(resume.atsScore)}`}
                               style={{ width: `${resume.atsScore}%` }}
-                            />
+                              />
                           </div>
                         </div>
+                        )
+                      }
+                      {
+                        resume.atsScore <=10 &&(
+                          <div className="flex items-center gap-2 justify-start">
+                            <Link href={`/dashboard/ats-score`}>
+                            <Button className='font-semibold text-black border-2px border-solid border-black rounded-lg bg-gray-200 px-4 cursor-pointer hover:bg-gray-300'>Get ATS Score</Button>
+                            </Link>
+                          </div>
+                        )
+                      }
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <StatusBadge tailored={resume.tailored} />
                       </TableCell>
                       <TableCell className="px-6 py-4 text-right">
-                        <Link href={`/dashboard/resume/${resume._id}`}>
-                          <button className="text-gray-400 hover:text-black transition-colors">
-                            <ArrowRight size={18} />
-                          </button>
-                        </Link>
+                        {
+                          resume.atsScore >10 &&
+                          (
+                          <Link href={`/dashboard/resume/${resume._id}`}>
+                            <button className="text-gray-400 hover:text-black transition-colors">
+                              <ArrowRight size={18} />
+                            </button>
+                          </Link>
+                          )
+                        }
+                        {
+                          resume.atsScore<=10 &&
+                          (
+                            <button className="text-gray-400 transition-colors">
+                              <Ban size={18} />
+                            </button>
+                          )
+                        }
                       </TableCell>
                     </TableRow>
                   ))) : (
